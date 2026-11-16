@@ -184,24 +184,23 @@ def preview_text(spawn: datetime, shift: int, now: datetime | None = None) -> st
     now = (now or spawn - WARN_BEFORE).astimezone(MSK)
     left = max(1, round((spawn - now).total_seconds() / 60))
     when = spawn.strftime("%H:%M")
-    return f"Через {left} {_in_minutes(left)}, {when}\nсундук: {chest}\nруда: {ore}"
+    return (
+        f"Через {left} {_in_minutes(left)}, {when}\n"
+        f"Сундук: {chest} · Руда: {ore}"
+    )
 
 
 def spawned_text(spawn: datetime, shift: int) -> str:
     ore, chest = _pair(spawn, shift)
     when = spawn.astimezone(MSK).strftime("%H:%M")
-    return (
-        f"{when}\n"
-        f"Сундуки заспавнились: {chest}\n"
-        f"Руда заспавнилась: {ore}"
-    )
+    return f"{when}\nСундук: {chest} · Руда: {ore}"
 
 
 def portal_text(at: datetime) -> str:
     at = at.astimezone(MSK).replace(second=0, microsecond=0)
     open_, until = portal(at)
     verb = "открылся" if open_ else "закрылся"
-    return f"Портал Святилища печати {verb} до {until.strftime('%H:%M')}\n{at.strftime('%H:%M')}"
+    return f"Портал Святилища печати {verb} до {until.strftime('%H:%M')}"
 
 
 def _selfcheck() -> None:
@@ -261,9 +260,9 @@ def _selfcheck() -> None:
     assert pending_portal(noon + timedelta(seconds=2), None) == noon
     assert pending_portal(noon + timedelta(seconds=2), key) is None
     assert pending_portal(noon + timedelta(seconds=50), None) is None
-    assert portal_text(noon) == "Портал Святилища печати закрылся до 12:15\n12:00"
-    assert portal_text(noon + timedelta(minutes=15)) == "Портал Святилища печати открылся до 12:30\n12:15"
-    assert portal_text(noon + timedelta(minutes=30)) == "Портал Святилища печати закрылся до 12:45\n12:30"
+    assert portal_text(noon) == "Портал Святилища печати закрылся до 12:15"
+    assert portal_text(noon + timedelta(minutes=15)) == "Портал Святилища печати открылся до 12:30"
+    assert portal_text(noon + timedelta(minutes=30)) == "Портал Святилища печати закрылся до 12:45"
     assert preview_text(noon, 0, noon - timedelta(minutes=5)).startswith("Через 5 минут, 12:00")
     assert preview_text(noon, 0, noon - timedelta(minutes=2)).startswith("Через 2 минуты, 12:00")
     print("schedule ok")

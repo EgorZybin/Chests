@@ -21,16 +21,6 @@ _INSTALL = "https://discord.com/oauth2/authorize?client_id=1571834115433439332&i
 _DM_ONLY = f"бот только в личных сообщениях\n{_INSTALL}"
 _SUBSCRIBED = "подписал личные сообщения на сундук, руду и портал Святилища печати"
 
-_COLOR = {
-    "warn": 0xFEE75C,
-    "spawn": 0x57F287,
-    "open": 0x57F287,
-    "shut": 0xED4245,
-    "down": 0xED4245,
-    "up": 0x57F287,
-    "plain": 0x5865F2,
-}
-
 
 def token() -> str:
     return os.environ.get("DISCORD_TOKEN", "").strip()
@@ -144,49 +134,6 @@ async def _reply(interaction: discord.Interaction, *, subscribe: bool) -> None:
     await interaction.response.send_message(text)
 
 
-def present(text: str) -> discord.Embed:
-    lines = text.split("\n")
-    head, rest = lines[0], [line for line in lines[1:] if line]
-    kind = _kind(head, rest)
-    embed = discord.Embed(title=head, color=_COLOR[kind])
-    if kind in ("warn", "spawn"):
-        _columns(embed, rest, preview=kind == "warn")
-        return embed
-    if rest:
-        embed.description = "\n".join(rest)
-    return embed
-
-
-def _kind(head: str, rest: list[str]) -> str:
-    if head.startswith("Через "):
-        return "warn"
-    if head.startswith("Портал Святилища печати открылся"):
-        return "open"
-    if head.startswith("Портал Святилища печати закрылся"):
-        return "shut"
-    if head.startswith("Техработы"):
-        return "down"
-    if head.startswith("Сервер поднялся"):
-        return "up"
-    if any(line.startswith("Сундуки заспавнились:") for line in rest):
-        return "spawn"
-    return "plain"
-
-
-def _columns(embed: discord.Embed, rest: list[str], *, preview: bool) -> None:
-    chest_prefix = "сундук:" if preview else "Сундуки заспавнились:"
-    ore_prefix = "руда:" if preview else "Руда заспавнилась:"
-    chest_name = "Сундук" if preview else "Сундуки заспавнились"
-    ore_name = "Руда" if preview else "Руда заспавнилась"
-    for line in rest:
-        if line.startswith(chest_prefix):
-            embed.add_field(name=chest_name, value=line.split(":", 1)[1].strip(), inline=True)
-        elif line.startswith(ore_prefix):
-            embed.add_field(name=ore_name, value=line.split(":", 1)[1].strip(), inline=True)
-        else:
-            embed.add_field(name="\u200b", value=line, inline=False)
-
-
 client: NebulaDiscord | None = None
 
 
@@ -217,7 +164,7 @@ async def relay(text: str) -> None:
             if not isinstance(channel, discord.DMChannel):
                 dead.append(channel_id)
                 continue
-            await channel.send(embed=present(text))
+            await channel.send(text)
         except (discord.Forbidden, discord.NotFound):
             dead.append(channel_id)
             log.info("drop discord channel %s", channel_id)
