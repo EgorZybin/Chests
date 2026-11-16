@@ -57,6 +57,7 @@ async def _tick() -> None:
             last_portal = state.last_portal
 
     now = now_msk()
+    sent_notice = False
     due = None if down else pending(now, last_warn, last_spawn)
     if due is not None:
         kind, slot = due
@@ -64,6 +65,7 @@ async def _tick() -> None:
             async with lock:
                 shift = total_shift(load())
             await broadcast(notice_text(kind, slot, shift, now))
+            sent_notice = True
             async with lock:
                 state = load()
                 last_warn = state.last_warn
@@ -71,6 +73,8 @@ async def _tick() -> None:
 
     gate = None if down else pending_portal(now, last_portal)
     if gate is not None and await remember("portal", slot_key(gate)):
+        if sent_notice:
+            await asyncio.sleep(1.5)
         await broadcast(portal_text(gate))
         async with lock:
             last_portal = load().last_portal

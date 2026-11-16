@@ -2,6 +2,9 @@
 
 Час задаёт локации. Сундук и руда встают трижды за этот час: :00, :20, :40.
 Сдвиг техработ двигает только час локации. Минутная сетка остаётся на часах МСК.
+В 19:00 МСК сундук и руда на час берутся со следующего шага. В 20:00 показывается
+пара, которая должна была стоять в 19:00. С 21:00 круг снова обычный.
+Портал эти часы не сдвигает.
 """
 
 from __future__ import annotations
@@ -12,9 +15,9 @@ from zoneinfo import ZoneInfo
 MSK = ZoneInfo("Europe/Moscow")
 
 LOCS = ("Аркейский лагерь", "Поселение орков", "Святилище печати", "Жертвенный храм")
-SANCTUARY = LOCS[2]
 WARN_BEFORE = timedelta(minutes=5)
 SPAWN_GRACE = timedelta(seconds=45)
+EVENT_HOUR = 19
 
 
 def locations(hour: int) -> tuple[str, str]:
@@ -28,6 +31,25 @@ def locations(hour: int) -> tuple[str, str]:
 def game_hour(wall: datetime, shift: int) -> int:
     wall = wall.astimezone(MSK)
     return (wall.hour + shift) % 24
+
+
+def location_hour(wall: datetime, shift: int) -> int:
+    """Час круга для сундука и руды.
+
+    19:00–20:00 МСК показывает следующий шаг. 20:00–21:00 возвращает пару,
+    пропущенную в 19:00. Дальше час снова равен игровому.
+    """
+    wall = wall.astimezone(MSK)
+    hour = game_hour(wall, shift)
+    if wall.hour == EVENT_HOUR:
+        return (hour + 1) % 24
+    if wall.hour == EVENT_HOUR + 1:
+        return (hour - 1) % 24
+    return hour
+
+
+def placed(wall: datetime, shift: int) -> tuple[str, str]:
+    return locations(location_hour(wall, shift))
 
 
 def missed_hour_ticks(down: datetime, up: datetime) -> int:
@@ -134,15 +156,8 @@ def slot_key(spawn: datetime) -> str:
     return spawn.strftime("%Y-%m-%d %H:%M")
 
 
-def _pair(spawn: datetime, shift: int) -> tuple[str, str, str]:
-    spawn = spawn.astimezone(MSK)
-    ore, chest = locations(game_hour(spawn, shift))
-    extra = ""
-    if chest == SANCTUARY or ore == SANCTUARY:
-        open_, until = portal(spawn)
-        state = "открыт" if open_ else "закрыт"
-        extra = f"\nпортал Святилища печати {state} до {until.strftime('%H:%M')}"
-    return ore, chest, extra
+def _pair(spawn: datetime, shift: int) -> tuple[str, str]:
+    return placed(spawn, shift)
 
 
 def _in_minutes(left: int) -> str:
@@ -158,21 +173,21 @@ def _in_minutes(left: int) -> str:
 
 
 def preview_text(spawn: datetime, shift: int, now: datetime | None = None) -> str:
-    ore, chest, extra = _pair(spawn, shift)
+    ore, chest = _pair(spawn, shift)
     spawn = spawn.astimezone(MSK)
     now = (now or spawn - WARN_BEFORE).astimezone(MSK)
     left = max(1, round((spawn - now).total_seconds() / 60))
     when = spawn.strftime("%H:%M")
-    return f"Через {left} {_in_minutes(left)}, {when}\nсундук: {chest}\nруда: {ore}{extra}"
+    return f"Через {left} {_in_minutes(left)}, {when}\nсундук: {chest}\nруда: {ore}"
 
 
 def spawned_text(spawn: datetime, shift: int) -> str:
-    ore, chest, extra = _pair(spawn, shift)
+    ore, chest = _pair(spawn, shift)
     when = spawn.astimezone(MSK).strftime("%H:%M")
     return (
         f"{when}\n"
         f"Сундуки заспавнились: {chest}\n"
-        f"Руда заспавнилась: {ore}{extra}"
+        f"Руда заспавнилась: {ore}"
     )
 
 
@@ -180,7 +195,7 @@ def portal_text(at: datetime) -> str:
     at = at.astimezone(MSK).replace(second=0, microsecond=0)
     open_, until = portal(at)
     verb = "открылся" if open_ else "закрылся"
-    return f"{at.strftime('%H:%M')}\nПортал Святилища печати {verb} до {until.strftime('%H:%M')}"
+    return f"Портал Святилища печати {verb} до {until.strftime('%H:%M')}\n{at.strftime('%H:%M')}"
 
 
 def _selfcheck() -> None:
@@ -190,6 +205,19 @@ def _selfcheck() -> None:
     assert locations(3) == ("Жертвенный храм", "Святилище печати")
     assert locations(12) == ("Аркейский лагерь", "Жертвенный храм")
     assert locations(13) == ("Поселение орков", "Аркейский лагерь")
+
+    day = datetime(2026, 11, 16, tzinfo=MSK)
+    at19 = day.replace(hour=19)
+    at20 = day.replace(hour=20)
+    assert placed(day.replace(hour=18, minute=40), 0) == locations(18)
+    assert placed(at19, 0) == locations(20)
+    assert placed(at19.replace(minute=40), 0) == locations(20)
+    assert placed(at20, 0) == locations(19)
+    assert placed(day.replace(hour=21), 0) == locations(21)
+    assert placed(at19, -2) == locations(18)
+    assert placed(at20, -2) == ("Поселение орков", "Аркейский лагерь")
+    assert placed(day.replace(hour=21), -2) == locations(19)
+    assert portal(at19)[0] is False
 
     down = datetime(2026, 11, 16, 8, 10, tzinfo=MSK)
     up = datetime(2026, 11, 16, 12, 11, tzinfo=MSK)
@@ -219,9 +247,9 @@ def _selfcheck() -> None:
     assert pending_portal(noon + timedelta(seconds=2), None) == noon
     assert pending_portal(noon + timedelta(seconds=2), key) is None
     assert pending_portal(noon + timedelta(seconds=50), None) is None
-    assert portal_text(noon) == "12:00\nПортал Святилища печати закрылся до 12:15"
-    assert portal_text(noon + timedelta(minutes=15)) == "12:15\nПортал Святилища печати открылся до 12:30"
-    assert portal_text(noon + timedelta(minutes=30)) == "12:30\nПортал Святилища печати закрылся до 12:45"
+    assert portal_text(noon) == "Портал Святилища печати закрылся до 12:15\n12:00"
+    assert portal_text(noon + timedelta(minutes=15)) == "Портал Святилища печати открылся до 12:30\n12:15"
+    assert portal_text(noon + timedelta(minutes=30)) == "Портал Святилища печати закрылся до 12:45\n12:30"
     assert preview_text(noon, 0, noon - timedelta(minutes=5)).startswith("Через 5 минут, 12:00")
     assert preview_text(noon, 0, noon - timedelta(minutes=2)).startswith("Через 2 минуты, 12:00")
     print("schedule ok")

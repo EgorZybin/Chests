@@ -7,9 +7,9 @@ from datetime import datetime
 
 from nebula.schedule import (
     MSK,
-    game_hour,
-    locations,
+    location_hour,
     missed_hour_ticks,
+    placed,
     portal,
     preview_text,
     spawned_text,
@@ -40,8 +40,8 @@ def total_shift(state: State) -> int:
 def status_text(state: State, now: datetime | None = None) -> str:
     now = now or now_msk()
     shift = total_shift(state)
-    hour = game_hour(now, shift)
-    ore, chest = locations(hour)
+    hour = location_hour(now, shift)
+    ore, chest = placed(now, shift)
     sign = "+" if shift > 0 else ""
     lines = [
         f"{now.strftime('%H:%M:%S')} МСК",
@@ -74,7 +74,7 @@ async def mark_down(when: datetime | None = None) -> str:
             assert down is not None
             return f"уже лежит с {down.strftime('%d.%m %H:%M')} МСК"
         state.down_since = when.timestamp()
-        ore, chest = locations(game_hour(when, total_shift(state)))
+        ore, chest = placed(when, total_shift(state))
         save(state)
     text = (
         f"Техработы. Пинги остановлены.\n"

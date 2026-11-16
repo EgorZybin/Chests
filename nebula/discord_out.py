@@ -160,15 +160,14 @@ def present(text: str) -> discord.Embed:
 def _kind(head: str, rest: list[str]) -> str:
     if head.startswith("Через "):
         return "warn"
+    if head.startswith("Портал Святилища печати открылся"):
+        return "open"
+    if head.startswith("Портал Святилища печати закрылся"):
+        return "shut"
     if head.startswith("Техработы"):
         return "down"
     if head.startswith("Сервер поднялся"):
         return "up"
-    body = "\n".join(rest)
-    if body.startswith("Портал Святилища печати открылся"):
-        return "open"
-    if body.startswith("Портал Святилища печати закрылся"):
-        return "shut"
     if any(line.startswith("Сундуки заспавнились:") for line in rest):
         return "spawn"
     return "plain"
@@ -182,10 +181,8 @@ def _columns(embed: discord.Embed, rest: list[str], *, preview: bool) -> None:
     for line in rest:
         if line.startswith(chest_prefix):
             embed.add_field(name=chest_name, value=line.split(":", 1)[1].strip(), inline=True)
-        elif line.startswith(ore_prefix):
+        el        if line.startswith(ore_prefix):
             embed.add_field(name=ore_name, value=line.split(":", 1)[1].strip(), inline=True)
-        elif line.startswith("портал "):
-            embed.add_field(name="\u200b", value=line, inline=False)
         else:
             embed.add_field(name="\u200b", value=line, inline=False)
 
