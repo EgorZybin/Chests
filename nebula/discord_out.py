@@ -1,4 +1,4 @@
-"""Рассылка в личные сообщения Discord. /start, /stop и любое сообщение подписывают."""
+"""Рассылка в личные сообщения. /start и кнопки под сообщением подписывают и отписывают."""
 
 from __future__ import annotations
 
@@ -19,6 +19,7 @@ _intents.dm_messages = True
 
 _INSTALL = "https://discord.com/oauth2/authorize?client_id=1571834115433439332&integration_type=1&scope=applications.commands"
 _DM_ONLY = f"бот только в личных сообщениях\n{_INSTALL}"
+_SUBSCRIBED = "подписал личные сообщения на сундук, руду и портал Святилища печати"
 
 
 def token() -> str:
@@ -32,24 +33,19 @@ class NebulaDiscord(discord.Client):
         self._commands_ready = False
 
     async def setup_hook(self) -> None:
-        @self.tree.command(name="start", description="Подписать личные сообщения")
+        self.add_view(Panel())
+
+        @self.tree.command(name="start", description="Подписаться")
         @app_commands.allowed_installs(guilds=False, users=True)
         @app_commands.allowed_contexts(guilds=False, dms=True, private_channels=False)
         async def start(interaction: discord.Interaction) -> None:
-            await _subscribe(interaction)
+            await _apply(interaction, subscribe=True)
 
-        @self.tree.command(name="stop", description="Отписать личные сообщения")
+        @self.tree.command(name="stop", description="Отписаться")
         @app_commands.allowed_installs(guilds=False, users=True)
         @app_commands.allowed_contexts(guilds=False, dms=True, private_channels=False)
         async def stop(interaction: discord.Interaction) -> None:
-            channel_id = _dm_id(interaction)
-            if channel_id is None:
-                await interaction.response.send_message(_DM_ONLY, ephemeral=True)
-                return
-            await interaction.response.send_message(
-                await unsubscribe_channel(channel_id),
-                ephemeral=False,
-            )
+            await _apply(interaction, subscribe=False)
 
     async def on_ready(self) -> None:
         await self._leave_guilds()
@@ -67,9 +63,7 @@ class NebulaDiscord(discord.Client):
         if not text.startswith("подписал"):
             return
         try:
-            await message.channel.send(
-                "подписал личные сообщения на сундук, руду и портал Святилища печати\n/stop отписывает"
-            )
+            await message.channel.send(_SUBSCRIBED, view=Panel())
         except discord.HTTPException:
             log.exception("не подтвердил подписку %s", message.channel.id)
 
@@ -121,6 +115,27 @@ class NebulaDiscord(discord.Client):
         log.info("убрал каналы серверов: %s", dead)
 
 
+class Panel(discord.ui.View):
+    def __init__(self) -> None:
+        super().__init__(timeout=None)
+
+    @discord.ui.button(
+        label="Подписаться",
+        style=discord.ButtonStyle.primary,
+        custom_id="nebula:sub",
+    )
+    async def sub(self, interaction: discord.Interaction, button: discord.ui.Button) -> None:
+        await _apply(interaction, subscribe=True)
+
+    @discord.ui.button(
+        label="Отписаться",
+        style=discord.ButtonStyle.secondary,
+        custom_id="nebula:unsub",
+    )
+    async def unsub(self, interaction: discord.Interaction, button: discord.ui.Button) -> None:
+        await _apply(interaction, subscribe=False)
+
+
 def _dm_id(interaction: discord.Interaction) -> int | None:
     channel = interaction.channel
     if interaction.guild_id is not None or not isinstance(channel, discord.DMChannel):
@@ -128,15 +143,22 @@ def _dm_id(interaction: discord.Interaction) -> int | None:
     return channel.id
 
 
-async def _subscribe(interaction: discord.Interaction) -> None:
+async def _apply(interaction: discord.Interaction, *, subscribe: bool) -> None:
     channel_id = _dm_id(interaction)
     if channel_id is None:
         await interaction.response.send_message(_DM_ONLY, ephemeral=True)
         return
-    text = await subscribe_channel(channel_id)
-    if text.startswith("подписал"):
-        text = "подписал личные сообщения на сундук, руду и портал Святилища печати\n/stop отписывает"
-    await interaction.response.send_message(text, ephemeral=False)
+    if subscribe:
+        text = await subscribe_channel(channel_id)
+        if text.startswith("подписал"):
+            text = _SUBSCRIBED
+    else:
+        text = await unsubscribe_channel(channel_id)
+    panel = Panel()
+    if interaction.type is discord.InteractionType.component and interaction.message is not None:
+        await interaction.response.edit_message(content=text, view=panel)
+        return
+    await interaction.response.send_message(text, view=panel)
 
 
 client: NebulaDiscord | None = None
