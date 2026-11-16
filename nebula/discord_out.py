@@ -181,7 +181,7 @@ def _columns(embed: discord.Embed, rest: list[str], *, preview: bool) -> None:
     for line in rest:
         if line.startswith(chest_prefix):
             embed.add_field(name=chest_name, value=line.split(":", 1)[1].strip(), inline=True)
-        el        if line.startswith(ore_prefix):
+        elif line.startswith(ore_prefix):
             embed.add_field(name=ore_name, value=line.split(":", 1)[1].strip(), inline=True)
         else:
             embed.add_field(name="\u200b", value=line, inline=False)
