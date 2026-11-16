@@ -21,6 +21,7 @@ class State:
     down_since: float | None = None
     chats: list[int] = field(default_factory=list)
     discord_channels: list[int] = field(default_factory=list)
+    owner_dm_sent: bool = False
     last_warn: str | None = None
     last_spawn: str | None = None
     last_portal: str | None = None
@@ -41,6 +42,7 @@ def load() -> State:
         down_since=raw.get("down_since"),
         chats=[int(x) for x in raw.get("chats", [])],
         discord_channels=[int(x) for x in raw.get("discord_channels", [])],
+        owner_dm_sent=bool(raw.get("owner_dm_sent", False)),
         last_warn=raw.get("last_warn") or raw.get("last_slot"),
         last_spawn=raw.get("last_spawn"),
         last_portal=raw.get("last_portal"),

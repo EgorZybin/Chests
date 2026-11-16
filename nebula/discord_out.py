@@ -31,13 +31,13 @@ class NebulaDiscord(discord.Client):
     async def setup_hook(self) -> None:
         @self.tree.command(name="start", description="Подписать этот канал или личные сообщения")
         @app_commands.allowed_installs(guilds=True, users=True)
-        @app_commands.allowed_contexts(guilds=True, dms=True, private_channels=True)
+        @app_commands.allowed_contexts(guilds=True, dms=True, private_channels=False)
         async def start(interaction: discord.Interaction) -> None:
             await _subscribe(interaction)
 
         @self.tree.command(name="stop", description="Отписать этот канал или личные сообщения")
         @app_commands.allowed_installs(guilds=True, users=True)
-        @app_commands.allowed_contexts(guilds=True, dms=True, private_channels=True)
+        @app_commands.allowed_contexts(guilds=True, dms=True, private_channels=False)
         async def stop(interaction: discord.Interaction) -> None:
             if interaction.channel_id is None:
                 await interaction.response.send_message("не вижу канал", ephemeral=True)
@@ -55,7 +55,35 @@ class NebulaDiscord(discord.Client):
             await self.tree.sync()
             self._commands_ready = True
             log.info("команды обновлены для серверов и личных сообщений")
+        await self._open_owner_dm()
         log.info("discord %s, серверов %s", self.user, len(self.guilds))
+
+    async def _open_owner_dm(self) -> None:
+        from nebula.service import lock
+        from nebula.state import load, save
+
+        async with lock:
+            if load().owner_dm_sent:
+                return
+        try:
+            info = await self.application_info()
+            owner = info.owner
+            if not isinstance(owner, discord.User):
+                log.info("владелец приложения не пользователь, личку не открываю")
+                return
+            dm = await owner.create_dm()
+            await dm.send(
+                "Личка открыта.\n"
+                "Напиши здесь /start — уведомления о сундуках, руде и портале будут приходить в этот чат.\n"
+                "/stop отписывает."
+            )
+        except discord.HTTPException:
+            log.exception("не открыл личку владельца")
+            return
+        async with lock:
+            state = load()
+            state.owner_dm_sent = True
+            save(state)
 
 
 async def _subscribe(interaction: discord.Interaction) -> None:
