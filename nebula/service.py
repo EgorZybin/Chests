@@ -5,9 +5,6 @@ import logging
 import os
 from datetime import datetime
 
-from aiogram import Bot
-from aiogram.exceptions import TelegramAPIError, TelegramBadRequest, TelegramForbiddenError
-
 from nebula.schedule import (
     MSK,
     game_hour,
@@ -62,30 +59,13 @@ def status_text(state: State, now: datetime | None = None) -> str:
     return "\n".join(lines)
 
 
-async def broadcast(bot: Bot, text: str) -> None:
-    async with lock:
-        state = load()
-        chats = list(state.chats)
-    dead: list[int] = []
-    for chat_id in chats:
-        try:
-            await bot.send_message(chat_id, text)
-        except (TelegramForbiddenError, TelegramBadRequest):
-            dead.append(chat_id)
-            log.info("drop chat %s", chat_id)
-        except TelegramAPIError:
-            log.exception("не отправилось в %s", chat_id)
-    if dead:
-        async with lock:
-            state = load()
-            state.chats = [c for c in state.chats if c not in dead]
-            save(state)
+async def broadcast(text: str) -> None:
     from nebula.discord_out import relay
 
     await relay(text)
 
 
-async def mark_down(bot: Bot, when: datetime | None = None) -> str:
+async def mark_down(when: datetime | None = None) -> str:
     when = when or now_msk()
     async with lock:
         state = load()
@@ -101,11 +81,11 @@ async def mark_down(bot: Bot, when: datetime | None = None) -> str:
         f"Лёг в {when.strftime('%H:%M:%S')} МСК\n"
         f"Круг замер: руда {ore}, сундук {chest}"
     )
-    await broadcast(bot, text)
+    await broadcast(text)
     return text
 
 
-async def mark_up(bot: Bot, when: datetime | None = None) -> str:
+async def mark_up(when: datetime | None = None) -> str:
     when = when or now_msk()
     async with lock:
         state = load()
@@ -128,7 +108,7 @@ async def mark_up(bot: Bot, when: datetime | None = None) -> str:
         f"Сдвиг теперь {sign}{shift}ч.\n"
         f"{status_text(load(), when)}"
     )
-    await broadcast(bot, text)
+    await broadcast(text)
     return text
 
 
@@ -152,16 +132,6 @@ def notice_text(kind: str, spawn: datetime, shift: int, now: datetime | None = N
     return spawned_text(spawn, shift)
 
 
-async def subscribe(chat_id: int) -> str:
-    async with lock:
-        state = load()
-        if chat_id in state.chats:
-            return "уже подписан"
-        state.chats.append(chat_id)
-        save(state)
-    return "подписал этот чат на сундук, руду и портал Дырки"
-
-
 async def subscribe_channel(channel_id: int) -> str:
     async with lock:
         state = load()
@@ -176,13 +146,5 @@ async def unsubscribe_channel(channel_id: int) -> str:
     async with lock:
         state = load()
         state.discord_channels = [c for c in state.discord_channels if c != channel_id]
-        save(state)
-    return "отписал"
-
-
-async def unsubscribe(chat_id: int) -> str:
-    async with lock:
-        state = load()
-        state.chats = [c for c in state.chats if c != chat_id]
         save(state)
     return "отписал"

@@ -4,10 +4,6 @@ import asyncio
 import logging
 import os
 
-from aiogram import Bot, Dispatcher, Router
-from aiogram.filters import Command
-from aiogram.types import Message
-
 from nebula.discord_out import close as discord_close
 from nebula.discord_out import start as discord_start
 from nebula.discord_out import token as discord_token
@@ -21,37 +17,24 @@ from nebula.service import (
     notice_text,
     now_msk,
     remember,
-    subscribe,
     total_shift,
-    unsubscribe,
 )
 from nebula.state import load
 
 log = logging.getLogger("nebula")
-router = Router()
 probe = GateProbe()
 
 
-@router.message(Command("start"))
-async def cmd_start(message: Message) -> None:
-    await message.answer(await subscribe(message.chat.id) + "\n/stop — отписка")
-
-
-@router.message(Command("stop"))
-async def cmd_stop(message: Message) -> None:
-    await message.answer(await unsubscribe(message.chat.id))
-
-
-async def _pings(bot: Bot) -> None:
+async def _pings() -> None:
     while True:
         try:
-            await _tick(bot)
+            await _tick()
         except Exception:
             log.exception("тик уведомлений")
             await asyncio.sleep(5)
 
 
-async def _tick(bot: Bot) -> None:
+async def _tick() -> None:
     async with lock:
         state = load()
         down = state.down_since is not None
@@ -61,10 +44,10 @@ async def _tick(bot: Bot) -> None:
     if probe.enabled:
         edge = await probe.edge(down)
         if edge == "down":
-            await mark_down(bot)
+            await mark_down()
             return
         if edge == "up":
-            await mark_up(bot)
+            await mark_up()
             return
         async with lock:
             state = load()
@@ -80,7 +63,7 @@ async def _tick(bot: Bot) -> None:
         if await remember(kind, slot_key(slot)):
             async with lock:
                 shift = total_shift(load())
-            await broadcast(bot, notice_text(kind, slot, shift, now))
+            await broadcast(notice_text(kind, slot, shift, now))
             async with lock:
                 state = load()
                 last_warn = state.last_warn
@@ -88,7 +71,7 @@ async def _tick(bot: Bot) -> None:
 
     gate = None if down else pending_portal(now, last_portal)
     if gate is not None and await remember("portal", slot_key(gate)):
-        await broadcast(bot, portal_text(gate))
+        await broadcast(portal_text(gate))
         async with lock:
             last_portal = load().last_portal
 
@@ -106,29 +89,18 @@ async def _tick(bot: Bot) -> None:
 
 async def run() -> None:
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
-    token = os.environ.get("BOT_TOKEN", "").strip()
-    if not token:
-        raise SystemExit("BOT_TOKEN пустой")
+    if not discord_token():
+        raise SystemExit("DISCORD_TOKEN пустой")
     log.info("HOUR_SHIFT=%s", os.environ.get("HOUR_SHIFT", "0"))
     if probe.enabled:
         log.info("опрос лобби :10000 и миров :11000, канарка — порт 1")
     else:
         log.info("опрос портов выключен")
-    if discord_token():
-        log.info("discord включён")
-    else:
-        log.info("DISCORD_TOKEN пустой, discord выключен")
-    bot = Bot(token)
-    dp = Dispatcher()
-    dp.include_router(router)
-    pings = asyncio.create_task(_pings(bot))
-    discord_task = asyncio.create_task(discord_start()) if discord_token() else None
+    log.info("telegram выключен, рассылка только в discord")
+    pings = asyncio.create_task(_pings())
     try:
-        await dp.start_polling(bot)
+        await discord_start()
     finally:
         pings.cancel()
-        if discord_task is not None:
-            discord_task.cancel()
         await discord_close()
-        pending = [pings] if discord_task is None else [pings, discord_task]
-        await asyncio.gather(*pending, return_exceptions=True)
+        await asyncio.gather(pings, return_exceptions=True)

@@ -1,4 +1,4 @@
-"""Тот же текст, что уходит в Telegram, плюс /start и /stop в канале."""
+"""Рассылка в Discord и команды /start и /stop."""
 
 from __future__ import annotations
 

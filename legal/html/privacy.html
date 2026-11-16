@@ -21,8 +21,7 @@
     <h2>Data we store</h2>
     <p>Only what is required to deliver a notification:</p>
     <ul>
-      <li>Telegram: the numeric chat id that sent the subscribe command;</li>
-      <li>Discord: the user, server, and channel ids when the application is added to a server and notifications are enabled there;</li>
+      <li>Discord: the channel id of the direct message or server channel that subscribed;</li>
       <li>schedule state: the hour shift, the downtime mark, and which notifications were already sent.</li>
     </ul>
     <p>The bot does not ask for or store your name, avatar, message history, game login, password, payment details, or friend list.</p>
@@ -31,13 +30,13 @@
     <p>The id is used to send a message to the chat that subscribed, and to remove that chat when it unsubscribes. Schedule state is used so the same notification is not sent twice and so the shift after maintenance is remembered.</p>
 
     <h2>Where it lives</h2>
-    <p>The state file and process logs stay on the operator's server, the machine this bot runs on. Data is not sold and is not sent to advertising networks. Telegram and Discord receive the message because that is how it is delivered, and they process it under their own rules.</p>
+    <p>The state file and process logs stay on the operator's server, the machine this bot runs on. Data is not sold and is not sent to advertising networks. Discord receives the message because that is how it is delivered, and processes it under its own rules.</p>
 
     <h2>Logs</h2>
     <p>If delivery fails, the process log may contain the chat id. The log rotates by size and is not used to build a user profile.</p>
 
     <h2>Retention</h2>
-    <p>An id is kept while the subscription is active. The unsubscribe command in Telegram, or removing the bot from a Discord server, drops that chat from delivery. The schedule shift stays with the operator and is not tied to a specific user.</p>
+    <p>An id is kept while the subscription is active. The /stop command, or removing the bot from a Discord server, drops that chat from delivery. The schedule shift stays with the operator and is not tied to a specific user.</p>
 
     <h2>These pages</h2>
     <p>The terms and this policy are static files. They set no cookies, load no trackers, and do not store IP addresses in a separate database. The web server may write a short technical access log, like any site.</p>
@@ -46,7 +45,7 @@
     <p>The bot is not directed at children under 13, and it does not knowingly collect their data.</p>
 
     <h2>Changes and requests</h2>
-    <p>A new version is published on this same page. If the unsubscribe command is unavailable, ask the owner of the Chests Nebula application in Discord or Telegram to delete the id. Related document: <a href="/terms">Terms of Service</a>.</p>
+    <p>A new version is published on this same page. If the unsubscribe command is unavailable, ask the owner of the Chests Nebula application in Discord to delete the id. Related document: <a href="/terms">Terms of Service</a>.</p>
   </main>
 </body>
 </html>
