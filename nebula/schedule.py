@@ -56,10 +56,10 @@ def next_spawn(now: datetime) -> datetime:
 
 
 def portal(at: datetime) -> tuple[bool, datetime]:
-    """Портал в Дырку: :00–:15 и :30–:45 открыт. Сетку не сдвигаем."""
+    """Портал в Дырку: :15–:30 и :45–:00 открыт. Сетку не сдвигаем."""
     at = at.astimezone(MSK)
     quarter = at.minute // 15
-    open_ = quarter % 2 == 0
+    open_ = quarter % 2 == 1
     end_minute = (quarter + 1) * 15
     base = at.replace(second=0, microsecond=0)
     if end_minute == 60:
@@ -211,15 +211,16 @@ def _selfcheck() -> None:
     assert pending(noon + timedelta(seconds=2), key, key) is None
     assert seconds_until_next(noon - timedelta(minutes=6), None, None) == 60
 
-    assert portal(noon) == (True, noon + timedelta(minutes=15))
-    assert portal(noon + timedelta(minutes=15))[0] is False
-    assert portal(noon + timedelta(minutes=30))[0] is True
-    assert portal(noon + timedelta(minutes=45))[0] is False
+    assert portal(noon) == (False, noon + timedelta(minutes=15))
+    assert portal(noon + timedelta(minutes=15))[0] is True
+    assert portal(noon + timedelta(minutes=30))[0] is False
+    assert portal(noon + timedelta(minutes=45))[0] is True
     assert pending_portal(noon + timedelta(seconds=2), None) == noon
     assert pending_portal(noon + timedelta(seconds=2), key) is None
     assert pending_portal(noon + timedelta(seconds=50), None) is None
-    assert portal_text(noon) == "12:00\nПортал Дырки открылся до 12:15"
-    assert portal_text(noon + timedelta(minutes=15)) == "12:15\nПортал Дырки закрылся до 12:30"
+    assert portal_text(noon) == "12:00\nПортал Дырки закрылся до 12:15"
+    assert portal_text(noon + timedelta(minutes=15)) == "12:15\nПортал Дырки открылся до 12:30"
+    assert portal_text(noon + timedelta(minutes=30)) == "12:30\nПортал Дырки закрылся до 12:45"
     assert preview_text(noon, 0, noon - timedelta(minutes=5)).startswith("Через 5 минут, 12:00")
     assert preview_text(noon, 0, noon - timedelta(minutes=2)).startswith("Через 2 минуты, 12:00")
     print("schedule ok")
