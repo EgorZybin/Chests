@@ -183,11 +183,7 @@ def preview_text(spawn: datetime, shift: int, now: datetime | None = None) -> st
     spawn = spawn.astimezone(MSK)
     now = (now or spawn - WARN_BEFORE).astimezone(MSK)
     left = max(1, round((spawn - now).total_seconds() / 60))
-    when = spawn.strftime("%H:%M")
-    return (
-        f"Через {left} {_in_minutes(left)}, {when}\n"
-        f"Сундук: {chest} · Руда: {ore}"
-    )
+    return f"Через {left} {_in_minutes(left)}\nСундук: {chest} · Руда: {ore}"
 
 
 def spawned_text(spawn: datetime, shift: int) -> str:
@@ -262,8 +258,8 @@ def _selfcheck() -> None:
     assert portal_text(noon) == "Портал Святилища печати закрылся до 12:15"
     assert portal_text(noon + timedelta(minutes=15)) == "Портал Святилища печати открылся до 12:30"
     assert portal_text(noon + timedelta(minutes=30)) == "Портал Святилища печати закрылся до 12:45"
-    assert preview_text(noon, 0, noon - timedelta(minutes=5)).startswith("Через 5 минут, 12:00")
-    assert preview_text(noon, 0, noon - timedelta(minutes=2)).startswith("Через 2 минуты, 12:00")
+    assert preview_text(noon, 0, noon - timedelta(minutes=5)).startswith("Через 5 минут\n")
+    assert preview_text(noon, 0, noon - timedelta(minutes=2)).startswith("Через 2 минуты\n")
     print("schedule ok")
 
 

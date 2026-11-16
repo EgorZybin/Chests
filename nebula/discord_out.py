@@ -21,6 +21,16 @@ _INSTALL = "https://discord.com/oauth2/authorize?client_id=1571834115433439332&i
 _DM_ONLY = f"бот только в личных сообщениях\n{_INSTALL}"
 _SUBSCRIBED = "подписал личные сообщения на сундук, руду и портал Святилища печати"
 
+_COLOR = {
+    "warn": 0xFEE75C,
+    "spawn": 0x57F287,
+    "open": 0x57F287,
+    "shut": 0xED4245,
+    "down": 0xED4245,
+    "up": 0x57F287,
+    "plain": 0x5865F2,
+}
+
 
 def token() -> str:
     return os.environ.get("DISCORD_TOKEN", "").strip()
@@ -134,6 +144,47 @@ async def _reply(interaction: discord.Interaction, *, subscribe: bool) -> None:
     await interaction.response.send_message(text)
 
 
+def present(text: str) -> discord.Embed:
+    kind = _kind(text)
+    embed = discord.Embed(color=_COLOR[kind])
+    if kind == "warn":
+        head, pair = text.split("\n", 1)
+        embed.title = f"{head} · {pair}"
+        _pair_fields(embed, pair)
+        return embed
+    if kind == "spawn":
+        embed.title = text
+        _pair_fields(embed, text)
+        return embed
+    lines = text.split("\n")
+    embed.title = lines[0]
+    if len(lines) > 1:
+        embed.description = "\n".join(lines[1:])
+    return embed
+
+
+def _kind(text: str) -> str:
+    if text.startswith("Через "):
+        return "warn"
+    if text.startswith("Сундук:"):
+        return "spawn"
+    if text.startswith("Портал Святилища печати открылся"):
+        return "open"
+    if text.startswith("Портал Святилища печати закрылся"):
+        return "shut"
+    if text.startswith("Техработы"):
+        return "down"
+    if text.startswith("Сервер поднялся"):
+        return "up"
+    return "plain"
+
+
+def _pair_fields(embed: discord.Embed, line: str) -> None:
+    chest, ore = line.split(" · ", 1)
+    embed.add_field(name="Сундук", value=chest.split(":", 1)[1].strip(), inline=True)
+    embed.add_field(name="Руда", value=ore.split(":", 1)[1].strip(), inline=True)
+
+
 client: NebulaDiscord | None = None
 
 
@@ -164,7 +215,7 @@ async def relay(text: str) -> None:
             if not isinstance(channel, discord.DMChannel):
                 dead.append(channel_id)
                 continue
-            await channel.send(text)
+            await channel.send(embed=present(text))
         except (discord.Forbidden, discord.NotFound):
             dead.append(channel_id)
             log.info("drop discord channel %s", channel_id)
