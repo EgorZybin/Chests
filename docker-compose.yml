@@ -14,3 +14,19 @@ services:
       options:
         max-size: "10m"
         max-file: "3"
+
+  web:
+    image: nginx:1.27-alpine
+    restart: unless-stopped
+    ports:
+      - "${WEB_PORT:-80}:80"
+    volumes:
+      - ./legal/index.html:/usr/share/nginx/html/index.html:ro
+      - ./legal/terms.html:/usr/share/nginx/html/terms.html:ro
+      - ./legal/privacy.html:/usr/share/nginx/html/privacy.html:ro
+      - ./legal/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
