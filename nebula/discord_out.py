@@ -26,40 +26,47 @@ class NebulaDiscord(discord.Client):
     def __init__(self) -> None:
         super().__init__(intents=_intents)
         self.tree = app_commands.CommandTree(self)
-        self._synced: set[int] = set()
+        self._commands_ready = False
 
     async def setup_hook(self) -> None:
-        @self.tree.command(name="start", description="Подписать этот канал на сундук, руду и портал Дырки")
+        @self.tree.command(name="start", description="Подписать этот канал или личные сообщения")
+        @app_commands.allowed_installs(guilds=True, users=True)
+        @app_commands.allowed_contexts(guilds=True, dms=True, private_channels=True)
         async def start(interaction: discord.Interaction) -> None:
-            if interaction.guild_id is None or interaction.channel_id is None:
-                await interaction.response.send_message("только канал сервера", ephemeral=True)
-                return
-            text = await subscribe_channel(interaction.channel_id)
-            await interaction.response.send_message(text, ephemeral=True)
+            await _subscribe(interaction)
 
-        @self.tree.command(name="stop", description="Отписать этот канал")
+        @self.tree.command(name="stop", description="Отписать этот канал или личные сообщения")
+        @app_commands.allowed_installs(guilds=True, users=True)
+        @app_commands.allowed_contexts(guilds=True, dms=True, private_channels=True)
         async def stop(interaction: discord.Interaction) -> None:
-            if interaction.guild_id is None or interaction.channel_id is None:
-                await interaction.response.send_message("только канал сервера", ephemeral=True)
+            if interaction.channel_id is None:
+                await interaction.response.send_message("не вижу канал", ephemeral=True)
                 return
-            text = await unsubscribe_channel(interaction.channel_id)
-            await interaction.response.send_message(text, ephemeral=True)
+            await interaction.response.send_message(
+                await unsubscribe_channel(interaction.channel_id),
+                ephemeral=True,
+            )
 
     async def on_ready(self) -> None:
-        for guild in self.guilds:
-            await self._sync(guild)
+        if not self._commands_ready:
+            for guild in self.guilds:
+                self.tree.clear_commands(guild=guild)
+                await self.tree.sync(guild=guild)
+            await self.tree.sync()
+            self._commands_ready = True
+            log.info("команды обновлены для серверов и личных сообщений")
         log.info("discord %s, серверов %s", self.user, len(self.guilds))
 
-    async def on_guild_join(self, guild: discord.Guild) -> None:
-        await self._sync(guild)
 
-    async def _sync(self, guild: discord.Guild) -> None:
-        if guild.id in self._synced:
-            return
-        self.tree.copy_global_to(guild=guild)
-        await self.tree.sync(guild=guild)
-        self._synced.add(guild.id)
-        log.info("команды на сервере %s", guild.id)
+async def _subscribe(interaction: discord.Interaction) -> None:
+    if interaction.channel_id is None:
+        await interaction.response.send_message("не вижу канал", ephemeral=True)
+        return
+    text = await subscribe_channel(interaction.channel_id)
+    if text.startswith("подписал"):
+        place = "личные сообщения" if interaction.guild_id is None else "этот канал"
+        text = f"подписал {place} на сундук, руду и портал Дырки"
+    await interaction.response.send_message(text, ephemeral=True)
 
 
 client: NebulaDiscord | None = None
