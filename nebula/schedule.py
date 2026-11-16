@@ -11,7 +11,8 @@ from zoneinfo import ZoneInfo
 
 MSK = ZoneInfo("Europe/Moscow")
 
-LOCS = ("Аркенум", "Орки", "Дырка", "Шрайн")
+LOCS = ("Аркейский лагерь", "Поселение орков", "Святилище печати", "Жертвенный храм")
+SANCTUARY = LOCS[2]
 WARN_BEFORE = timedelta(minutes=5)
 SPAWN_GRACE = timedelta(seconds=45)
 
@@ -56,7 +57,7 @@ def next_spawn(now: datetime) -> datetime:
 
 
 def portal(at: datetime) -> tuple[bool, datetime]:
-    """Портал в Дырку: :15–:30 и :45–:00 открыт. Сетку не сдвигаем."""
+    """Портал Святилища печати: :15–:30 и :45–:00 открыт. Сетку не сдвигаем."""
     at = at.astimezone(MSK)
     quarter = at.minute // 15
     open_ = quarter % 2 == 1
@@ -137,10 +138,10 @@ def _pair(spawn: datetime, shift: int) -> tuple[str, str, str]:
     spawn = spawn.astimezone(MSK)
     ore, chest = locations(game_hour(spawn, shift))
     extra = ""
-    if chest == "Дырка" or ore == "Дырка":
+    if chest == SANCTUARY or ore == SANCTUARY:
         open_, until = portal(spawn)
         state = "открыт" if open_ else "закрыт"
-        extra = f"\nпортал Дырки {state} до {until.strftime('%H:%M')}"
+        extra = f"\nпортал Святилища печати {state} до {until.strftime('%H:%M')}"
     return ore, chest, extra
 
 
@@ -179,16 +180,16 @@ def portal_text(at: datetime) -> str:
     at = at.astimezone(MSK).replace(second=0, microsecond=0)
     open_, until = portal(at)
     verb = "открылся" if open_ else "закрылся"
-    return f"{at.strftime('%H:%M')}\nПортал Дырки {verb} до {until.strftime('%H:%M')}"
+    return f"{at.strftime('%H:%M')}\nПортал Святилища печати {verb} до {until.strftime('%H:%M')}"
 
 
 def _selfcheck() -> None:
-    assert locations(0) == ("Аркенум", "Шрайн")
-    assert locations(1) == ("Орки", "Аркенум")
-    assert locations(2) == ("Дырка", "Орки")
-    assert locations(3) == ("Шрайн", "Дырка")
-    assert locations(12) == ("Аркенум", "Шрайн")
-    assert locations(13) == ("Орки", "Аркенум")
+    assert locations(0) == ("Аркейский лагерь", "Жертвенный храм")
+    assert locations(1) == ("Поселение орков", "Аркейский лагерь")
+    assert locations(2) == ("Святилище печати", "Поселение орков")
+    assert locations(3) == ("Жертвенный храм", "Святилище печати")
+    assert locations(12) == ("Аркейский лагерь", "Жертвенный храм")
+    assert locations(13) == ("Поселение орков", "Аркейский лагерь")
 
     down = datetime(2026, 11, 16, 8, 10, tzinfo=MSK)
     up = datetime(2026, 11, 16, 12, 11, tzinfo=MSK)
@@ -218,9 +219,9 @@ def _selfcheck() -> None:
     assert pending_portal(noon + timedelta(seconds=2), None) == noon
     assert pending_portal(noon + timedelta(seconds=2), key) is None
     assert pending_portal(noon + timedelta(seconds=50), None) is None
-    assert portal_text(noon) == "12:00\nПортал Дырки закрылся до 12:15"
-    assert portal_text(noon + timedelta(minutes=15)) == "12:15\nПортал Дырки открылся до 12:30"
-    assert portal_text(noon + timedelta(minutes=30)) == "12:30\nПортал Дырки закрылся до 12:45"
+    assert portal_text(noon) == "12:00\nПортал Святилища печати закрылся до 12:15"
+    assert portal_text(noon + timedelta(minutes=15)) == "12:15\nПортал Святилища печати открылся до 12:30"
+    assert portal_text(noon + timedelta(minutes=30)) == "12:30\nПортал Святилища печати закрылся до 12:45"
     assert preview_text(noon, 0, noon - timedelta(minutes=5)).startswith("Через 5 минут, 12:00")
     assert preview_text(noon, 0, noon - timedelta(minutes=2)).startswith("Через 2 минуты, 12:00")
     print("schedule ok")

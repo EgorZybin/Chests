@@ -50,7 +50,7 @@ def status_text(state: State, now: datetime | None = None) -> str:
     ]
     open_, until = portal(now)
     lines.append(
-        f"портал Дырки {'открыт' if open_ else 'закрыт'} до {until.strftime('%H:%M')}"
+        f"портал Святилища печати {'открыт' if open_ else 'закрыт'} до {until.strftime('%H:%M')}"
     )
     if state.down_since is not None:
         down = state.down_at()
@@ -139,7 +139,7 @@ async def subscribe_channel(channel_id: int) -> str:
             return "уже подписан"
         state.discord_channels.append(channel_id)
         save(state)
-    return "подписал этот канал на сундук, руду и портал Дырки"
+    return "подписал этот канал на сундук, руду и портал Святилища печати"
 
 
 async def unsubscribe_channel(channel_id: int) -> str:

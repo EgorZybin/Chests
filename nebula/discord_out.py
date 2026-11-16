@@ -68,7 +68,7 @@ class NebulaDiscord(discord.Client):
             return
         try:
             await message.channel.send(
-                "подписал личные сообщения на сундук, руду и портал Дырки\n/stop отписывает"
+                "подписал личные сообщения на сундук, руду и портал Святилища печати\n/stop отписывает"
             )
         except discord.HTTPException:
             log.exception("не подтвердил подписку %s", message.channel.id)
@@ -135,7 +135,7 @@ async def _subscribe(interaction: discord.Interaction) -> None:
         return
     text = await subscribe_channel(channel_id)
     if text.startswith("подписал"):
-        text = "подписал личные сообщения на сундук, руду и портал Дырки\n/stop отписывает"
+        text = "подписал личные сообщения на сундук, руду и портал Святилища печати\n/stop отписывает"
     await interaction.response.send_message(text, ephemeral=False)
 
 
