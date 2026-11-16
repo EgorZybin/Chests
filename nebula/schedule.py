@@ -4,6 +4,8 @@
 Сдвиг техработ двигает только час локации. Минутная сетка остаётся на часах МСК.
 В 19:00 МСК сундук и руда на час берутся со следующего шага. В 20:00 показывается
 пара, которая должна была стоять в 19:00. С 21:00 круг снова обычный.
+Кроме воскресенья босс в 21:00 держит эту пару ещё и на 22:00. Шаг, который
+должен был начаться в 22:00, пропускается, и в 23:00 круг уже обычный.
 Портал эти часы не сдвигает.
 """
 
@@ -18,6 +20,7 @@ LOCS = ("Аркейский лагерь", "Поселение орков", "С�
 WARN_BEFORE = timedelta(minutes=5)
 SPAWN_GRACE = timedelta(seconds=45)
 EVENT_HOUR = 19
+BOSS_HOUR = 21
 
 
 def locations(hour: int) -> tuple[str, str]:
@@ -37,13 +40,16 @@ def location_hour(wall: datetime, shift: int) -> int:
     """Час круга для сундука и руды.
 
     19:00–20:00 МСК показывает следующий шаг. 20:00–21:00 возвращает пару,
-    пропущенную в 19:00. Дальше час снова равен игровому.
+    пропущенную в 19:00. Кроме воскресенья 22:00 повторяет пару 21:00,
+    шаг 22:00 пропускается. В 23:00 час снова равен игровому.
     """
     wall = wall.astimezone(MSK)
     hour = game_hour(wall, shift)
     if wall.hour == EVENT_HOUR:
         return (hour + 1) % 24
     if wall.hour == EVENT_HOUR + 1:
+        return (hour - 1) % 24
+    if wall.hour == BOSS_HOUR + 1 and wall.weekday() != 6:
         return (hour - 1) % 24
     return hour
 
@@ -216,7 +222,15 @@ def _selfcheck() -> None:
     assert placed(day.replace(hour=21), 0) == locations(21)
     assert placed(at19, -2) == locations(18)
     assert placed(at20, -2) == ("Поселение орков", "Аркейский лагерь")
-    assert placed(day.replace(hour=21), -2) == locations(19)
+    boss = ("Жертвенный храм", "Святилище печати")
+    assert day.weekday() == 0
+    assert placed(day.replace(hour=21), -2) == boss
+    assert placed(day.replace(hour=22), -2) == boss
+    assert placed(day.replace(hour=22, minute=40), -2) == boss
+    assert placed(day.replace(hour=23), -2) == ("Поселение орков", "Аркейский лагерь")
+    sunday = datetime(2026, 11, 22, 22, tzinfo=MSK)
+    assert sunday.weekday() == 6
+    assert placed(sunday, -2) == ("Аркейский лагерь", "Жертвенный храм")
     assert portal(at19)[0] is False
 
     down = datetime(2026, 11, 16, 8, 10, tzinfo=MSK)
