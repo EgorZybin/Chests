@@ -21,10 +21,8 @@ services:
     ports:
       - "${WEB_PORT:-80}:80"
     volumes:
-      - ./legal/index.html:/usr/share/nginx/html/index.html:ro
-      - ./legal/terms.html:/usr/share/nginx/html/terms.html:ro
-      - ./legal/privacy.html:/usr/share/nginx/html/privacy.html:ro
-      - ./legal/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./legal/html:/usr/share/nginx/html:ro
+      - ./legal/conf.d:/etc/nginx/conf.d:ro
     logging:
       driver: json-file
       options:
