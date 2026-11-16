@@ -6,9 +6,10 @@
 пара, которая должна была стоять в 19:00. С 21:00 круг снова обычный.
 Кроме воскресенья босс в 21:00 держит эту пару ещё и на 22:00. Шаг, который
 должен был начаться в 22:00, пропускается, и в 23:00 круг уже обычный.
-В ночь после босса 00:00 повторяет пару 23:00, а в 01:00 выходит пара,
-которая должна была стоять в 00:00. После воскресенья, в понедельник в 00:00,
-повтора нет. Портал эти часы не сдвигает.
+В ночь после босса круг с 00:00 до 19:00 идёт на час позади: 00:00 повторяет
+пару 23:00, а в 01:00 выходит пара, которая должна была стоять в 00:00.
+Дальше шаг за шагом, без прыжка на обычный час. После воскресенья, в
+понедельник утром, повтора нет. Портал эти часы не сдвигает.
 """
 
 from __future__ import annotations
@@ -44,8 +45,9 @@ def location_hour(wall: datetime, shift: int) -> int:
     19:00–20:00 МСК показывает следующий шаг. 20:00–21:00 возвращает пару,
     пропущенную в 19:00. Кроме воскресенья 22:00 повторяет пару 21:00,
     шаг 22:00 пропускается. В 23:00 час снова равен игровому.
-    В ночь после такого босса 00:00 и 01:00 сдвинуты на шаг назад:
-    00:00 повторяет 23:00, 01:00 показывает обычные 00:00.
+    В ночь после такого босса с 00:00 до 19:00 круг на час позади:
+    00:00 повторяет 23:00, дальше каждый час — следующий шаг, без прыжка
+    обратно на обычный час. В 19:00 снова эвент от обычного часа.
     """
     wall = wall.astimezone(MSK)
     hour = game_hour(wall, shift)
@@ -55,7 +57,7 @@ def location_hour(wall: datetime, shift: int) -> int:
         return (hour - 1) % 24
     if wall.hour == BOSS_HOUR + 1 and wall.weekday() != 6:
         return (hour - 1) % 24
-    if wall.hour in (0, 1) and wall.weekday() != 0:
+    if wall.hour < EVENT_HOUR and wall.weekday() != 0:
         return (hour - 1) % 24
     return hour
 
@@ -234,7 +236,9 @@ def _selfcheck() -> None:
     assert placed(night.replace(hour=0, minute=20), -2) == late
     assert placed(night.replace(hour=0, minute=40), -2) == late
     assert placed(night.replace(hour=1), -2) == ("Святилище печати", "Поселение орков")
-    assert placed(night.replace(hour=2), -2) == locations(0)
+    assert placed(night.replace(hour=2), -2) == boss
+    assert placed(night.replace(hour=2, minute=40), -2) == boss
+    assert placed(night.replace(hour=3), -2) == locations(0)
     assert placed(day.replace(hour=0), -2) == ("Святилище печати", "Поселение орков")
     sunday = datetime(2026, 11, 22, 22, tzinfo=MSK)
     assert sunday.weekday() == 6
