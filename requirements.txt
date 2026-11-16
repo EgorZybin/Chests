@@ -1,3 +1,4 @@
 aiogram>=3.13
+discord.py>=2.4
 python-dotenv
 tzdata

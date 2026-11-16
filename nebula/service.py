@@ -80,6 +80,9 @@ async def broadcast(bot: Bot, text: str) -> None:
             state = load()
             state.chats = [c for c in state.chats if c not in dead]
             save(state)
+    from nebula.discord_out import relay
+
+    await relay(text)
 
 
 async def mark_down(bot: Bot, when: datetime | None = None) -> str:
@@ -157,6 +160,24 @@ async def subscribe(chat_id: int) -> str:
         state.chats.append(chat_id)
         save(state)
     return "подписал этот чат на сундук, руду и портал Дырки"
+
+
+async def subscribe_channel(channel_id: int) -> str:
+    async with lock:
+        state = load()
+        if channel_id in state.discord_channels:
+            return "уже подписан"
+        state.discord_channels.append(channel_id)
+        save(state)
+    return "подписал этот канал на сундук, руду и портал Дырки"
+
+
+async def unsubscribe_channel(channel_id: int) -> str:
+    async with lock:
+        state = load()
+        state.discord_channels = [c for c in state.discord_channels if c != channel_id]
+        save(state)
+    return "отписал"
 
 
 async def unsubscribe(chat_id: int) -> str:

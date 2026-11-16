@@ -8,6 +8,9 @@ from aiogram import Bot, Dispatcher, Router
 from aiogram.filters import Command
 from aiogram.types import Message
 
+from nebula.discord_out import close as discord_close
+from nebula.discord_out import start as discord_start
+from nebula.discord_out import token as discord_token
 from nebula.probe import GateProbe
 from nebula.schedule import pending, pending_portal, portal_text, seconds_until_next, slot_key
 from nebula.service import (
@@ -111,12 +114,21 @@ async def run() -> None:
         log.info("опрос лобби :10000 и миров :11000, канарка — порт 1")
     else:
         log.info("опрос портов выключен")
+    if discord_token():
+        log.info("discord включён")
+    else:
+        log.info("DISCORD_TOKEN пустой, discord выключен")
     bot = Bot(token)
     dp = Dispatcher()
     dp.include_router(router)
     pings = asyncio.create_task(_pings(bot))
+    discord_task = asyncio.create_task(discord_start()) if discord_token() else None
     try:
         await dp.start_polling(bot)
     finally:
         pings.cancel()
-        await asyncio.gather(pings, return_exceptions=True)
+        if discord_task is not None:
+            discord_task.cancel()
+        await discord_close()
+        pending = [pings] if discord_task is None else [pings, discord_task]
+        await asyncio.gather(*pending, return_exceptions=True)
