@@ -192,8 +192,7 @@ def preview_text(spawn: datetime, shift: int, now: datetime | None = None) -> st
 
 def spawned_text(spawn: datetime, shift: int) -> str:
     ore, chest = _pair(spawn, shift)
-    when = spawn.astimezone(MSK).strftime("%H:%M")
-    return f"{when}\nСундук: {chest} · Руда: {ore}"
+    return f"Сундук: {chest} · Руда: {ore}"
 
 
 def portal_text(at: datetime) -> str:
