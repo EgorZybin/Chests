@@ -1,4 +1,4 @@
-"""Рассылка в личные сообщения. /start и кнопки под сообщением подписывают и отписывают."""
+"""Рассылка в личные сообщения. /start и /stop, уведомления карточкой."""
 
 from __future__ import annotations
 
@@ -21,6 +21,16 @@ _INSTALL = "https://discord.com/oauth2/authorize?client_id=1571834115433439332&i
 _DM_ONLY = f"бот только в личных сообщениях\n{_INSTALL}"
 _SUBSCRIBED = "подписал личные сообщения на сундук, руду и портал Святилища печати"
 
+_COLOR = {
+    "warn": 0xFEE75C,
+    "spawn": 0x57F287,
+    "open": 0x57F287,
+    "shut": 0xED4245,
+    "down": 0xED4245,
+    "up": 0x57F287,
+    "plain": 0x5865F2,
+}
+
 
 def token() -> str:
     return os.environ.get("DISCORD_TOKEN", "").strip()
@@ -33,19 +43,17 @@ class NebulaDiscord(discord.Client):
         self._commands_ready = False
 
     async def setup_hook(self) -> None:
-        self.add_view(Panel())
-
-        @self.tree.command(name="start", description="Подписаться")
+        @self.tree.command(name="start", description="Подписать личные сообщения")
         @app_commands.allowed_installs(guilds=False, users=True)
         @app_commands.allowed_contexts(guilds=False, dms=True, private_channels=False)
         async def start(interaction: discord.Interaction) -> None:
-            await _apply(interaction, subscribe=True)
+            await _reply(interaction, subscribe=True)
 
-        @self.tree.command(name="stop", description="Отписаться")
+        @self.tree.command(name="stop", description="Отписать личные сообщения")
         @app_commands.allowed_installs(guilds=False, users=True)
         @app_commands.allowed_contexts(guilds=False, dms=True, private_channels=False)
         async def stop(interaction: discord.Interaction) -> None:
-            await _apply(interaction, subscribe=False)
+            await _reply(interaction, subscribe=False)
 
     async def on_ready(self) -> None:
         await self._leave_guilds()
@@ -63,7 +71,7 @@ class NebulaDiscord(discord.Client):
         if not text.startswith("подписал"):
             return
         try:
-            await message.channel.send(_SUBSCRIBED, view=Panel())
+            await message.channel.send(_SUBSCRIBED)
         except discord.HTTPException:
             log.exception("не подтвердил подписку %s", message.channel.id)
 
@@ -115,27 +123,6 @@ class NebulaDiscord(discord.Client):
         log.info("убрал каналы серверов: %s", dead)
 
 
-class Panel(discord.ui.View):
-    def __init__(self) -> None:
-        super().__init__(timeout=None)
-
-    @discord.ui.button(
-        label="Подписаться",
-        style=discord.ButtonStyle.primary,
-        custom_id="nebula:sub",
-    )
-    async def sub(self, interaction: discord.Interaction, button: discord.ui.Button) -> None:
-        await _apply(interaction, subscribe=True)
-
-    @discord.ui.button(
-        label="Отписаться",
-        style=discord.ButtonStyle.secondary,
-        custom_id="nebula:unsub",
-    )
-    async def unsub(self, interaction: discord.Interaction, button: discord.ui.Button) -> None:
-        await _apply(interaction, subscribe=False)
-
-
 def _dm_id(interaction: discord.Interaction) -> int | None:
     channel = interaction.channel
     if interaction.guild_id is not None or not isinstance(channel, discord.DMChannel):
@@ -143,7 +130,7 @@ def _dm_id(interaction: discord.Interaction) -> int | None:
     return channel.id
 
 
-async def _apply(interaction: discord.Interaction, *, subscribe: bool) -> None:
+async def _reply(interaction: discord.Interaction, *, subscribe: bool) -> None:
     channel_id = _dm_id(interaction)
     if channel_id is None:
         await interaction.response.send_message(_DM_ONLY, ephemeral=True)
@@ -154,11 +141,53 @@ async def _apply(interaction: discord.Interaction, *, subscribe: bool) -> None:
             text = _SUBSCRIBED
     else:
         text = await unsubscribe_channel(channel_id)
-    panel = Panel()
-    if interaction.type is discord.InteractionType.component and interaction.message is not None:
-        await interaction.response.edit_message(content=text, view=panel)
-        return
-    await interaction.response.send_message(text, view=panel)
+    await interaction.response.send_message(text)
+
+
+def present(text: str) -> discord.Embed:
+    lines = text.split("\n")
+    head, rest = lines[0], [line for line in lines[1:] if line]
+    kind = _kind(head, rest)
+    embed = discord.Embed(title=head, color=_COLOR[kind])
+    if kind in ("warn", "spawn"):
+        _columns(embed, rest, preview=kind == "warn")
+        return embed
+    if rest:
+        embed.description = "\n".join(rest)
+    return embed
+
+
+def _kind(head: str, rest: list[str]) -> str:
+    if head.startswith("Через "):
+        return "warn"
+    if head.startswith("Техработы"):
+        return "down"
+    if head.startswith("Сервер поднялся"):
+        return "up"
+    body = "\n".join(rest)
+    if body.startswith("Портал Святилища печати открылся"):
+        return "open"
+    if body.startswith("Портал Святилища печати закрылся"):
+        return "shut"
+    if any(line.startswith("Сундуки заспавнились:") for line in rest):
+        return "spawn"
+    return "plain"
+
+
+def _columns(embed: discord.Embed, rest: list[str], *, preview: bool) -> None:
+    chest_prefix = "сундук:" if preview else "Сундуки заспавнились:"
+    ore_prefix = "руда:" if preview else "Руда заспавнилась:"
+    chest_name = "Сундук" if preview else "Сундуки заспавнились"
+    ore_name = "Руда" if preview else "Руда заспавнилась"
+    for line in rest:
+        if line.startswith(chest_prefix):
+            embed.add_field(name=chest_name, value=line.split(":", 1)[1].strip(), inline=True)
+        elif line.startswith(ore_prefix):
+            embed.add_field(name=ore_name, value=line.split(":", 1)[1].strip(), inline=True)
+        elif line.startswith("портал "):
+            embed.add_field(name="\u200b", value=line, inline=False)
+        else:
+            embed.add_field(name="\u200b", value=line, inline=False)
 
 
 client: NebulaDiscord | None = None
@@ -191,7 +220,7 @@ async def relay(text: str) -> None:
             if not isinstance(channel, discord.DMChannel):
                 dead.append(channel_id)
                 continue
-            await channel.send(text)
+            await channel.send(embed=present(text))
         except (discord.Forbidden, discord.NotFound):
             dead.append(channel_id)
             log.info("drop discord channel %s", channel_id)
